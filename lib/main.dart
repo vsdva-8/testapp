@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:untitled/distance_notifier.dart';
 
 final distanceProvider=StateNotifierProvider<DistanceNotifier, double>((ref)=>DistanceNotifier(0));
@@ -52,10 +53,11 @@ class MainApp extends ConsumerWidget{
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(onPressed: ()async{
-                              final dir=await getApplicationDocumentsDirectory();
-                              Logger().i(dir.path);
-                              final img=await controller.takePicture();
-                              await img.saveTo('${dir.path}/${img.name}');
+                              final dir=await getExternalStorageDirectories(type: StorageDirectory.pictures);
+                              final img=await controller.takePicture().then((img)=>img);
+                              final perRes=await Permission.manageExternalStorage.request();
+                              Logger().i(perRes.isDenied);
+                              await img.saveTo(dir!.first.path);
                             }, icon: const Icon(Icons.photo_camera)),
                             TextButton(onPressed: (){
                           ref.watch(isOpen.notifier).update((state)=>false);
