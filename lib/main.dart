@@ -1,16 +1,15 @@
 
+
 import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logger/logger.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:untitled/distance_notifier.dart';
 
 final distanceProvider=StateNotifierProvider<DistanceNotifier, double>((ref)=>DistanceNotifier(0));
-final isOpen=StateProvider<bool>((ref)=>false);
+final cameraIsOpen=StateProvider<bool>((ref)=>false);
+final imgPath=StateProvider((ref)=>'');
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,9 +41,9 @@ class MainApp extends ConsumerWidget{
                   ref.watch(distanceProvider.notifier).stopWay();
                 }, child: const Text('Stop')),
                 TextButton(onPressed: () {
-                  ref.watch(isOpen.notifier).update((state)=>true);
+                  ref.watch(cameraIsOpen.notifier).update((state)=>true);
                 }, child: const Text('Open camera')),
-               ref.watch(isOpen)?FutureBuilder(future: ref.watch(cameraInit), builder: (context, snapshot){
+               ref.watch(cameraIsOpen)?FutureBuilder(future: ref.watch(cameraInit), builder: (context, snapshot){
                   if(snapshot.connectionState==ConnectionState.done){
                     return Column(
                       children: [
@@ -53,14 +52,16 @@ class MainApp extends ConsumerWidget{
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(onPressed: ()async{
-                              final dir=await getExternalStorageDirectories(type: StorageDirectory.pictures);
-                              final img=await controller.takePicture().then((img)=>img);
-                              final perRes=await Permission.manageExternalStorage.request();
-                              Logger().i(perRes.isDenied);
-                              await img.saveTo(dir!.first.path);
+                             final img=await controller.takePicture();
+                             ref.watch(imgPath.notifier).update((s)=>img.path);
                             }, icon: const Icon(Icons.photo_camera)),
+                            IconButton(onPressed: ()async{
+                              if(ref.watch(imgPath).isNotEmpty){
+                                Navigator.of(context).push(MaterialPageRoute(builder: (context)=>const Picture()));
+                              }
+                            }, icon: const Icon(Icons.folder)),
                             TextButton(onPressed: (){
-                          ref.watch(isOpen.notifier).update((state)=>false);
+                          ref.watch(cameraIsOpen.notifier).update((state)=>false);
                           ref.watch(cameraInit.notifier).dispose();
                         }, child: const Text('Close', style: TextStyle(color: Colors.black),))
                           ])
@@ -82,5 +83,14 @@ class MainApp extends ConsumerWidget{
         ),
       ),
     );
+  }
+}
+
+class Picture extends ConsumerWidget {
+  const Picture({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(child:  Image.file(File(ref.watch(imgPath))));
   }
 }
